@@ -6,34 +6,25 @@ import { LoggedInHeader } from "@/components/challenge/logged-in-header";
 import { DownloadCards } from "@/components/download/download-cards";
 import { InstallSteps } from "@/components/download/install-steps";
 import { NextStepsCard } from "@/components/download/next-steps-card";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function DownloadPage() {
-  const router = useRouter();
-  const [userData, setUserData] = useState<{
-    username: string;
-    experience: string;
-    language: string;
-  } | null>(null);
+  const { user, isLoading } = useAuth({ pageType: "protected" });
 
-  useEffect(() => {
-    const storedUser = localStorage.getItem("crucibleUser");
-    if (!storedUser) {
-      router.push("/start");
-      return;
-    }
-    setUserData(JSON.parse(storedUser));
-  }, [router]);
-
-  if (!userData) {
-    return null;
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground font-mono">Loading...</p>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
       <LoggedInHeader
-        username={userData.username}
-        experience={userData.experience}
-        language={userData.language}
+        username={user.username || "User"}
+        experience={user.experience || "Intermediate"}
+        language={user.language || "JavaScript"}
       />
 
       <div className="container mx-auto px-4 py-12 max-w-5xl">

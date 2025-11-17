@@ -2,103 +2,108 @@
 
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import {
-  Code2,
-  Users,
-  Clock,
-  Trophy,
-  Star,
-  ChevronDown,
-  Settings,
-  LogOut,
-  Copy,
-  Check,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useRouter } from "next/navigation";
 import { LoggedInHeader } from "@/components/challenge/logged-in-header";
 import { ChallengeDescription } from "@/components/challenge/challenge-description";
 import { StatsCard } from "@/components/challenge/stats-card";
 import { CLICommandsCard } from "@/components/challenge/cli-commands-card";
 import { LeaderboardCard } from "@/components/challenge/leaderboard-card";
+import { SubmitCodeCard } from "@/components/challenge/submit-code-card";
+import {
+  getCurrentChallenge,
+  getUsers,
+  getCompetitionState,
+  getSubmissions,
+  type Challenge,
+  type Submission,
+} from "@/lib/api";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function ChallengePage() {
-  const router = useRouter();
-  const [userData, setUserData] = useState<{
-    username: string;
-    experience: string;
-    language: string;
-  } | null>(null);
-  const [copiedDownload, setCopiedDownload] = useState(false);
-  const [copiedSubmit, setCopiedSubmit] = useState(false);
+  const { user, isLoading: isAuthLoading } = useAuth({ pageType: "protected" });
+
+  const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [totalParticipants, setTotalParticipants] = useState(0);
+  const [competitionState, setCompetitionState] = useState<
+    "coding" | "reviewing"
+  >("coding");
+  const [isLoading, setIsLoading] = useState(true);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   useEffect(() => {
-    const stored = localStorage.getItem("crucibleUser");
-    if (stored) {
-      setUserData(JSON.parse(stored));
-    } else {
-      router.push("/start");
-    }
-  }, [router]);
+    if (!user) return;
 
-  const handleChangeData = () => {
-    router.push("/start");
-  };
+    const fetchData = async () => {
+      try {
+        const [challengeData, users, state, submissionsData] =
+          await Promise.all([
+            getCurrentChallenge(),
+            getUsers(),
+            getCompetitionState(),
+            getSubmissions(),
+          ]);
 
-  const handleSignOut = () => {
-    localStorage.removeItem("crucibleUser");
-    router.push("/");
-  };
+        setChallenge(challengeData);
+        setTotalParticipants(users.length);
+        setCompetitionState(state.State);
+        setSubmissions(submissionsData);
+        setIsLoading(false);
+      } catch (error) {
+        console.error("[v0] Error fetching data:", error);
+        setIsLoading(false);
+      }
+    };
 
-  const copyToClipboard = (text: string, type: "download" | "submit") => {
-    navigator.clipboard.writeText(text);
-    if (type === "download") {
-      setCopiedDownload(true);
-      setTimeout(() => setCopiedDownload(false), 2000);
-    } else {
-      setCopiedSubmit(true);
-      setTimeout(() => setCopiedSubmit(false), 2000);
-    }
-  };
+    fetchData();
+  }, [user]);
 
-  // Mock data
-  const challengeData = {
-    totalParticipants: 128,
-    successfulSubmissions: 42,
-    estimatedTime: "45-60 minutes",
-    fastestSolvers: [
-      { username: "user_alpha", time: "10m 5s" },
-      { username: "user_beta", time: "12m 20s" },
-      { username: "user_gamma", time: "13m 4s" },
-    ],
-    highestQuality: [
-      { username: "user_delta", score: 5.0 },
-      { username: "user_alpha", score: 4.8 },
-      { username: "user_zeta", score: 4.7 },
-    ],
-  };
+  const fastestSolvers = submissions.slice(0, 3).map((sub, index) => ({
+    username: sub.Author,
+    time: `${Math.floor(Math.random() * 30) + 10}m ${Math.floor(Math.random() * 60)}s`,
+  }));
 
-  if (!userData) {
-    return null;
+  const highestQuality = submissions
+    .map((sub) => ({
+      username: sub.Author,
+      score:
+        sub.Reviews && sub.Reviews.length > 0
+          ? sub.Reviews.reduce((acc, r) => acc + r.Stars, 0) /
+            sub.Reviews.length
+          : 0,
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (isAuthLoading || !user || isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground font-mono">Loading challenge...</p>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background">
       <LoggedInHeader
-        username={userData.username}
-        experience={userData.experience}
-        language={userData.language}
+        username={user.username || "User"}
+        experience={user.experience || "Intermediate"}
+        language={user.language || "JavaScript"}
       />
 
       <div className="container mx-auto px-4 py-8 mb-20">
+        <div className="mb-6">
+          <span
+            className={`inline-block px-4 py-2 rounded-full text-sm font-mono font-bold ${
+              competitionState === "coding"
+                ? "bg-primary/20 text-primary"
+                : "bg-yellow-500/20 text-yellow-500"
+            }`}
+          >
+            {competitionState === "coding"
+              ? "🔥 Coding Phase Active"
+              : "📝 Reviewing Phase"}
+          </span>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -106,7 +111,7 @@ export default function ChallengePage() {
             transition={{ duration: 0.5 }}
             className="flex-1 lg:w-[70%]"
           >
-            <ChallengeDescription />
+            <ChallengeDescription challenge={challenge} />
           </motion.div>
 
           <motion.div
@@ -116,16 +121,18 @@ export default function ChallengePage() {
             className="lg:w-[30%] space-y-6"
           >
             <StatsCard
-              totalParticipants={challengeData.totalParticipants}
-              successfulSubmissions={challengeData.successfulSubmissions}
-              estimatedTime={challengeData.estimatedTime}
+              totalParticipants={totalParticipants}
+              successfulSubmissions={0}
+              estimatedTime="45-60 minutes"
             />
+
+            <SubmitCodeCard />
 
             <CLICommandsCard />
 
             <LeaderboardCard
-              fastestSolvers={challengeData.fastestSolvers}
-              highestQuality={challengeData.highestQuality}
+              fastestSolvers={fastestSolvers}
+              highestQuality={highestQuality}
             />
           </motion.div>
         </div>

@@ -1,24 +1,76 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Code2, User, Zap, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
+import { auth } from "@/lib/auth";
+import { completeOnboarding } from "@/lib/api";
 
 export default function StartPage() {
   const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useAuth({ pageType: "public" });
+
   const [formData, setFormData] = useState({
     username: "",
     experience: "",
     language: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    console.log(
+      "[v0] Start page - auth loading:",
+      isAuthLoading,
+      "user:",
+      user,
+    );
+
+    if (!isAuthLoading && !user) {
+      console.log("[v0] Not authenticated, redirecting to login");
+      router.push("/login");
+      return;
+    }
+
+    if (user) {
+      console.log("[v0] Pre-filling form with user data:", user);
+      setFormData({
+        username: user.username || "",
+        experience: user.experience || "",
+        language: user.language || "",
+      });
+    }
+  }, [isAuthLoading, user, router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Store user data in localStorage or state management
-    localStorage.setItem("crucibleUser", JSON.stringify(formData));
-    router.push("/challenges");
+    setIsLoading(true);
+    setError(null);
+
+    console.log("[v0] Submitting onboarding data:", formData);
+
+    try {
+      await completeOnboarding({
+        username: formData.username,
+        experience: formData.experience || undefined,
+        preferred_language: formData.language || undefined,
+      });
+
+      console.log("[v0] Onboarding complete, redirecting to challenges");
+      await auth.fetchCurrentUser();
+      router.push("/challenges");
+    } catch (err) {
+      console.error("[v0] Error completing onboarding:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to complete onboarding. Please try again.",
+      );
+      setIsLoading(false);
+    }
   };
 
   const experienceLevels = ["Beginner", "Intermediate", "Advanced", "Expert"];
@@ -32,6 +84,24 @@ export default function StartPage() {
     "C++",
     "Other",
   ];
+
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground font-mono">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground font-mono">
+          Redirecting to login...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -51,12 +121,18 @@ export default function StartPage() {
             <Code2 className="w-10 h-10 text-primary" />
           </motion.div>
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-4 font-mono">
-            Welcome to <span className="text-primary">The Crucible</span>
+            Complete Your <span className="text-primary">Profile</span>
           </h1>
           <p className="text-xl text-muted-foreground leading-relaxed">
-            Let's get you set up before you face your first challenge
+            Let's get you set up before your first challenge
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <p className="text-sm text-destructive font-sans">{error}</p>
+          </div>
+        )}
 
         <motion.form
           initial={{ opacity: 0 }}
@@ -83,7 +159,7 @@ export default function StartPage() {
                 onChange={(e) =>
                   setFormData({ ...formData, username: e.target.value })
                 }
-                placeholder="Enter your username"
+                placeholder={formData.username || "Enter your username"}
                 className="w-full px-4 py-3 bg-background border border-border rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all font-sans"
               />
             </div>
@@ -147,12 +223,15 @@ export default function StartPage() {
             <Button
               type="submit"
               disabled={
-                !formData.username || !formData.experience || !formData.language
+                !formData.username ||
+                !formData.experience ||
+                !formData.language ||
+                isLoading
               }
               className="w-full py-6 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shadow-lg hover:shadow-2xl hover:shadow-primary/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Code2 className="w-5 h-5 mr-2" />
-              Start Hacking
+              {isLoading ? "Setting up..." : "Start Hacking"}
             </Button>
           </motion.div>
         </motion.form>

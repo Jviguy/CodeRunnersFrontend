@@ -3,6 +3,7 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import { Code2 } from "lucide-react";
+import Link from "next/link";
 
 export function FinalCTA() {
   const ref = useRef(null);
@@ -38,15 +39,16 @@ export function FinalCTA() {
             from our AI-powered senior developer.
           </p>
 
-          <motion.a
-            href="/start"
-            className="inline-flex items-center gap-3 px-8 py-4 text-lg font-bold rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-primary/50"
-            whileHover={{ y: -4 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Code2 className="w-6 h-6" />
-            Test Your Ego
-          </motion.a>
+          <Link href="/challenges">
+            <motion.button
+              className="inline-flex items-center gap-3 px-8 py-4 text-lg font-bold rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 hover:scale-105 hover:shadow-2xl hover:shadow-primary/50"
+              whileHover={{ y: -4 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <Code2 className="w-6 h-6" />
+              Test Your Ego
+            </motion.button>
+          </Link>
         </motion.div>
       </div>
     </section>

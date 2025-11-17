@@ -1,33 +1,38 @@
-"use client"
+"use client";
 
-import { Code2, ChevronDown, Settings, LogOut } from 'lucide-react'
-import { Badge } from "@/components/ui/badge"
+import { Code2, ChevronDown, Settings, LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { useRouter } from 'next/navigation'
+} from "@/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/auth";
 
 interface LoggedInHeaderProps {
-  username: string
-  experience: string
-  language: string
+  username: string;
+  experience: string;
+  language: string;
 }
 
-export function LoggedInHeader({ username, experience, language }: LoggedInHeaderProps) {
-  const router = useRouter()
+export function LoggedInHeader({
+  username,
+  experience,
+  language,
+}: LoggedInHeaderProps) {
+  const router = useRouter();
 
   const handleChangeData = () => {
-    router.push("/start")
-  }
+    router.push("/start");
+  };
 
-  const handleSignOut = () => {
-    localStorage.removeItem("crucibleUser")
-    router.push("/")
-  }
+  const handleSignOut = async () => {
+    await auth.logout();
+    router.push("/");
+  };
 
   return (
     <div className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
@@ -40,13 +45,17 @@ export function LoggedInHeader({ username, experience, language }: LoggedInHeade
             <Code2 className="w-6 h-6 text-primary" />
             <span className="font-mono text-lg font-bold">The Crucible</span>
           </button>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-3 px-4 py-2 rounded-lg border border-border bg-card hover:bg-accent transition-colors">
                 <div className="text-right">
-                  <p className="text-sm text-muted-foreground font-sans">Welcome back,</p>
-                  <p className="font-mono font-bold text-foreground">{username}</p>
+                  <p className="text-sm text-muted-foreground font-sans">
+                    Welcome back,
+                  </p>
+                  <p className="font-mono font-bold text-foreground">
+                    {username}
+                  </p>
                 </div>
                 <Badge variant="secondary" className="font-mono">
                   {experience}
@@ -56,18 +65,26 @@ export function LoggedInHeader({ username, experience, language }: LoggedInHeade
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <div className="px-2 py-1.5 text-sm">
-                <p className="font-mono font-semibold text-foreground">{username}</p>
+                <p className="font-mono font-semibold text-foreground">
+                  {username}
+                </p>
                 <p className="text-xs text-muted-foreground font-sans">
                   {experience} • {language}
                 </p>
               </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleChangeData} className="cursor-pointer">
+              <DropdownMenuItem
+                onClick={handleChangeData}
+                className="cursor-pointer"
+              >
                 <Settings className="w-4 h-4 mr-2" />
                 <span className="font-sans">Change Data</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-destructive focus:text-destructive">
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
                 <LogOut className="w-4 h-4 mr-2" />
                 <span className="font-sans">Sign Out</span>
               </DropdownMenuItem>
@@ -76,5 +93,5 @@ export function LoggedInHeader({ username, experience, language }: LoggedInHeade
         </div>
       </div>
     </div>
-  )
+  );
 }

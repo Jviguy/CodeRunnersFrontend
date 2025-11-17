@@ -4,18 +4,9 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Code2 } from "lucide-react";
+import Link from "next/link";
 
 export default function Hero() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return null;
-  }
-
   return (
     <>
       <section className="relative overflow-hidden min-h-screen flex flex-col">
@@ -69,7 +60,7 @@ export default function Hero() {
               className="flex flex-col items-center gap-6"
             >
               <div className="flex items-center justify-center">
-                <a href="/challenges">
+                <Link href="/challenges">
                   <div className="group cursor-pointer border border-border bg-card gap-2 h-[60px] flex items-center p-[10px] rounded-full hover:border-primary/50 transition-all">
                     <div className="border border-border bg-primary h-[40px] rounded-full flex items-center justify-center text-primary-foreground group-hover:bg-primary/90 transition-all">
                       <p className="font-medium tracking-tight mr-3 ml-3 flex items-center gap-2 justify-center text-base">
@@ -95,7 +86,7 @@ export default function Hero() {
                       </svg>
                     </div>
                   </div>
-                </a>
+                </Link>
               </div>
             </motion.div>
           </div>
