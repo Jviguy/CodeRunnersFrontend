@@ -5,103 +5,97 @@ import { useState, useEffect } from "react";
 import { LoggedInHeader } from "@/components/challenge/logged-in-header";
 import { ChallengeDescription } from "@/components/challenge/challenge-description";
 import { StatsCard } from "@/components/challenge/stats-card";
-import { CLICommandsCard } from "@/components/challenge/cli-commands-card";
-import { LeaderboardCard } from "@/components/challenge/leaderboard-card";
 import { SubmitCodeCard } from "@/components/challenge/submit-code-card";
-import {
-  getCurrentChallenge,
-  getUsers,
-  getCompetitionState,
-  getSubmissions,
-  type Challenge,
-  type Submission,
-} from "@/lib/api";
+import { CLICommandsCard } from "@/components/challenge/cli-commands-card";
+import { NoChallengeAvailable } from "@/components/challenge/no-challenge-available";
+import { getCurrentChallenge, type Challenge } from "@/lib/api";
 import { useAuth } from "@/hooks/use-auth";
 
 export default function ChallengePage() {
-  const { user, isLoading: isAuthLoading } = useAuth({ pageType: "protected" });
+  const { user } = useAuth({ pageType: "protected" });
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [totalParticipants, setTotalParticipants] = useState(0);
-  const [competitionState, setCompetitionState] = useState<
-    "coding" | "reviewing"
-  >("coding");
-  const [isLoading, setIsLoading] = useState(true);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [timeRemaining, setTimeRemaining] = useState<string>("");
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    setIsMounted(true);
+  }, []);
 
+  useEffect(() => {
     const fetchData = async () => {
       try {
-        const [challengeData, users, state, submissionsData] =
-          await Promise.all([
-            getCurrentChallenge(),
-            getUsers(),
-            getCompetitionState(),
-            getSubmissions(),
-          ]);
-
+        const challengeData = await getCurrentChallenge();
         setChallenge(challengeData);
-        setTotalParticipants(users.length);
-        setCompetitionState(state.State);
-        setSubmissions(submissionsData);
-        setIsLoading(false);
       } catch (error) {
-        console.error("[v0] Error fetching data:", error);
-        setIsLoading(false);
+        console.error("Error fetching challenge:", error);
+        setChallenge(null);
       }
     };
 
     fetchData();
-  }, [user]);
+  }, []);
 
-  const fastestSolvers = submissions.slice(0, 3).map((sub, index) => ({
-    username: sub.Author,
-    time: `${Math.floor(Math.random() * 30) + 10}m ${Math.floor(Math.random() * 60)}s`,
-  }));
+  useEffect(() => {
+    if (!challenge?.ends_at) return;
 
-  const highestQuality = submissions
-    .map((sub) => ({
-      username: sub.Author,
-      score:
-        sub.Reviews && sub.Reviews.length > 0
-          ? sub.Reviews.reduce((acc, r) => acc + r.Stars, 0) /
-            sub.Reviews.length
-          : 0,
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 3);
+    const updateCountdown = () => {
+      const now = new Date().getTime();
+      const endTime = new Date(challenge.ends_at).getTime();
+      const distance = endTime - now;
 
-  if (isAuthLoading || !user || isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground font-mono">Loading challenge...</p>
-      </div>
-    );
+      if (distance < 0) {
+        setTimeRemaining("Challenge Ended");
+        return;
+      }
+
+      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+      const hours = Math.floor(
+        (distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      );
+      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+      setTimeRemaining(
+        days > 0
+          ? `${days}d ${hours}h ${minutes}m`
+          : `${hours}h ${minutes}m ${seconds}s`,
+      );
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [challenge?.ends_at]);
+
+  if (!isMounted) {
+    return null;
+  }
+
+  if (!challenge || challenge.status !== "Live") {
+    return <NoChallengeAvailable />;
   }
 
   return (
     <div className="min-h-screen bg-background">
       <LoggedInHeader
-        username={user.username || "User"}
-        experience={user.experience || "Intermediate"}
-        language={user.language || "JavaScript"}
+        username={user?.username || "Loading..."}
+        experience={user?.experience || "Intermediate"}
+        language={user?.language || "JavaScript"}
       />
 
       <div className="container mx-auto px-4 py-8 mb-20">
-        <div className="mb-6">
-          <span
-            className={`inline-block px-4 py-2 rounded-full text-sm font-mono font-bold ${
-              competitionState === "coding"
-                ? "bg-primary/20 text-primary"
-                : "bg-yellow-500/20 text-yellow-500"
-            }`}
-          >
-            {competitionState === "coding"
-              ? "🔥 Coding Phase Active"
-              : "📝 Reviewing Phase"}
+        <div className="mb-6 flex items-center justify-between flex-wrap gap-4">
+          <span className="inline-block px-4 py-2 rounded-full text-sm font-mono font-bold bg-primary/20 text-primary">
+            🔥 Live Challenge
           </span>
+
+          {timeRemaining && (
+            <span className="inline-block px-4 py-2 rounded-full text-sm font-mono font-bold bg-red-500/20 text-red-500">
+              ⏱️ Ends in: {timeRemaining}
+            </span>
+          )}
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
@@ -111,7 +105,7 @@ export default function ChallengePage() {
             transition={{ duration: 0.5 }}
             className="flex-1 lg:w-[70%]"
           >
-            <ChallengeDescription challenge={challenge} />
+            <ChallengeDescription challenge={challenge!} />
           </motion.div>
 
           <motion.div
@@ -121,7 +115,7 @@ export default function ChallengePage() {
             className="lg:w-[30%] space-y-6"
           >
             <StatsCard
-              totalParticipants={totalParticipants}
+              totalParticipants={0}
               successfulSubmissions={0}
               estimatedTime="45-60 minutes"
             />
@@ -129,11 +123,6 @@ export default function ChallengePage() {
             <SubmitCodeCard />
 
             <CLICommandsCard />
-
-            <LeaderboardCard
-              fastestSolvers={fastestSolvers}
-              highestQuality={highestQuality}
-            />
           </motion.div>
         </div>
       </div>

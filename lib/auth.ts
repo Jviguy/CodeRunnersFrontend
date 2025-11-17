@@ -15,49 +15,78 @@ export interface User {
   username?: string;
   experience?: string;
   language?: string;
+  preferred_language?: string; // Backend might use this field name
 }
 
 const USER_KEY = "crucible_user";
+let userCache: { data: User | null; timestamp: number } | null = null;
+const CACHE_DURATION = 60000; // Increased to 60 seconds for better performance
+let pendingRequest: Promise<User | null> | null = null; // Track pending requests to prevent duplicates
 
 export const auth = {
-  // Fetch current user from backend (cookie is sent automatically)
   async fetchCurrentUser(): Promise<User | null> {
-    try {
-      const response = await fetch("http://localhost:8000/api/user/me", {
-        credentials: "include", // Important: send cookies with request
-      });
-
-      if (!response.ok) {
-        return null;
-      }
-
-      const userData = await response.json();
-
-      // Cache user data locally
-      if (typeof window !== "undefined") {
-        localStorage.setItem(USER_KEY, JSON.stringify(userData));
-      }
-
-      return userData;
-    } catch (error) {
-      console.error("[v0] Failed to fetch current user:", error);
-      return null;
+    if (userCache && Date.now() - userCache.timestamp < CACHE_DURATION) {
+      return userCache.data;
     }
+
+    if (pendingRequest) {
+      return pendingRequest;
+    }
+
+    pendingRequest = (async () => {
+      try {
+        const response = await fetch("http://localhost:8000/api/user/me", {
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          userCache = { data: null, timestamp: Date.now() };
+          return null;
+        }
+
+        const userData = await response.json();
+
+        userCache = { data: userData, timestamp: Date.now() };
+        if (typeof window !== "undefined") {
+          localStorage.setItem(USER_KEY, JSON.stringify(userData));
+        }
+
+        return userData;
+      } catch (error) {
+        console.error("[v0] Failed to fetch current user:", error);
+        userCache = { data: null, timestamp: Date.now() };
+        return null;
+      } finally {
+        pendingRequest = null;
+      }
+    })();
+
+    return pendingRequest;
   },
 
-  // Get cached user (for immediate access without API call)
   getCachedUser(): User | null {
+    if (userCache && Date.now() - userCache.timestamp < CACHE_DURATION) {
+      return userCache.data;
+    }
+
     if (typeof window !== "undefined") {
       const cached = localStorage.getItem(USER_KEY);
       if (cached) {
-        return JSON.parse(cached);
+        try {
+          const userData = JSON.parse(cached);
+          userCache = { data: userData, timestamp: Date.now() };
+          return userData;
+        } catch {
+          return null;
+        }
       }
     }
     return null;
   },
 
-  // Clear cached user data
   clearUser() {
+    userCache = null;
+    pendingRequest = null; // Also clear any pending requests
     if (typeof window !== "undefined") {
       localStorage.removeItem(USER_KEY);
     }

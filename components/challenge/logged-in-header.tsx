@@ -69,7 +69,7 @@ export function LoggedInHeader({
                   {username}
                 </p>
                 <p className="text-xs text-muted-foreground font-sans">
-                  {experience} • {language}
+                  {`${experience} • ${language}`}
                 </p>
               </div>
               <DropdownMenuSeparator />

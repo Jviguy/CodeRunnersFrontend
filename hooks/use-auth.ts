@@ -35,68 +35,53 @@ interface UseAuthReturn {
 export function useAuth(options: UseAuthOptions = {}): UseAuthReturn {
   const { pageType = "public", redirectTo } = options;
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(() => auth.getCachedUser());
+  const [isLoading, setIsLoading] = useState(false); // Initialize as false, render immediately
   const [error, setError] = useState<string | null>(null);
   const [hasChecked, setHasChecked] = useState(false);
 
   useEffect(() => {
     if (hasChecked) return;
 
-    console.log("[v0] useAuth checking auth, pageType:", pageType);
-
     async function checkAuth() {
       try {
         const fetchedUser = await auth.fetchCurrentUser();
-        console.log("[v0] Fetched user:", fetchedUser);
 
         if (!fetchedUser) {
-          console.log("[v0] No user found");
           setUser(null);
 
           if (pageType === "protected") {
-            console.log("[v0] Protected page, redirecting to login");
             router.push("/login");
           }
           setHasChecked(true);
-          setIsLoading(false);
           return;
         }
 
         if (redirectTo) {
-          console.log("[v0] Manual redirect to:", redirectTo);
           router.push(redirectTo);
           setHasChecked(true);
-          setIsLoading(false);
           return;
         }
 
         if (pageType === "protected") {
           if (fetchedUser.status === "pending_onboarding") {
-            console.log("[v0] User needs onboarding, redirecting to /start");
             router.push("/start");
             setHasChecked(true);
-            setIsLoading(false);
             return;
           }
           if (fetchedUser.status === "suspended") {
-            console.log("[v0] User suspended");
             router.push("/suspended");
             setHasChecked(true);
-            setIsLoading(false);
             return;
           }
         }
 
-        console.log("[v0] Auth check complete, setting user");
         setUser(fetchedUser);
         setHasChecked(true);
       } catch (err) {
         console.error("[v0] Auth check failed:", err);
         setError("Failed to verify authentication");
         setHasChecked(true);
-      } finally {
-        setIsLoading(false);
       }
     }
 
